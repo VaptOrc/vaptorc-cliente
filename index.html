@@ -1,1 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orçamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --ink-soft:#243350; --blueprint:#2F5D8A; --copper:#B9662E; --copper-dark:#9A5323;
+    --paper:#F6F4EF; --card:#FFFFFF; --slate:#5B6472; --line:#DDD8CC;
+    --amber:#C98F1E; --green:#3F8F5F; --red:#B8493F;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);font-family:'Inter',sans-serif;color:#2B2B2B;min-height:100vh;padding:0 0 110px;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .wrap{max-width:480px;margin:0 auto;padding:24px 16px;}
+  .brand{text-align:center;font-family:'Space Grotesk',sans-serif;font-size:12.5px;color:var(--slate);letter-spacing:.3px;margin-bottom:16px;}
+  .brand strong{color:var(--ink);}
 
+  .state{text-align:center;padding:60px 20px;color:var(--slate);}
+  .state.error{color:var(--red);}
+
+  .doc-paper{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:24px 20px;font-size:13.5px;line-height:1.65;box-shadow:0 8px 30px rgba(20,30,50,.06);
+  }
+  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:16px;border-bottom:2px solid var(--ink);}
+  .doc-head .co{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;color:var(--ink);}
+  .doc-head img.logo{max-height:44px;display:block;margin-bottom:4px;}
+  .doc-head .co-sub{font-size:11.5px;color:var(--slate);}
+  .doc-head .meta{text-align:right;font-size:12px;color:var(--slate);}
+  .doc-head .meta .num{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--ink);font-weight:500;}
+  .doc-block{margin-bottom:18px;}
+  .doc-block h4{margin:0 0 7px;font-size:12.5px;color:var(--copper-dark);font-weight:700;}
+  .doc-block p{margin:0 0 6px;white-space:pre-line;}
+  .doc-total-row{display:flex;justify-content:space-between;padding-top:11px;margin-top:5px;border-top:1px solid var(--line);font-weight:700;font-size:16px;color:var(--ink);}
+  .status-pill{display:inline-block;font-size:11.5px;padding:4px 11px;border-radius:999px;font-weight:600;margin-bottom:4px;}
+  .status-pill.aberto{background:#FBF0DA;color:#8A6314;}
+  .status-pill.aceito{background:#E1F0E6;color:#2C6B45;}
+  .sig-img{max-height:46px;display:block;margin:6px 0;}
+
+  .action-bar{
+    position:fixed;bottom:0;left:0;right:0;background:var(--card);
+    border-top:1px solid var(--line);padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    box-shadow:0 -6px 20px rgba(20,30,50,.08);
+  }
+  .action-bar .inner{max-width:480px;margin:0 auto;}
+  .action-bar .valid{font-size:11.5px;color:var(--slate);text-align:center;margin-bottom:9px;}
+  .btn-accept{
+    width:100%;background:var(--copper);color:#fff;border:none;padding:15px;border-radius:12px;
+    font-family:'Inter',sans-serif;font-weight:700;font-size:14.5px;cursor:pointer;
+  }
+  .btn-accept:disabled{background:#C9B9A9;cursor:default;}
+  .btn-accept:not(:disabled):hover{background:var(--copper-dark);}
+
+  .confirm-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center;margin-top:14px;}
+  .confirm-box p{font-size:13px;color:var(--slate);margin:0 0 12px;}
+  .confirm-actions{display:flex;gap:10px;}
+  .confirm-actions button{flex:1;padding:12px;border-radius:9px;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;}
+  .btn-cancel{background:var(--card);border:1px solid var(--line);color:var(--ink);}
+  .btn-confirm{background:var(--ink);border:none;color:#fff;}
+
+  .accepted-banner{
+    background:#E1F0E6;color:#2C6B45;border-radius:10px;padding:14px 16px;text-align:center;
+    font-size:13.5px;font-weight:600;margin-top:16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand">gerado com <strong>VaptOrc</strong></div>
+  <div id="content">
+    <div class="state" id="loadingState">Carregando orçamento…</div>
+  </div>
+</div>
+
+<div class="action-bar" id="actionBar" style="display:none;">
+  <div class="inner">
+    <div class="valid" id="validText"></div>
+    <button class="btn-accept" id="acceptBtn" onclick="mostrarConfirmacao()">Aceitar orçamento</button>
+    <div class="confirm-box" id="confirmBox" style="display:none;">
+      <p>Confirma o aceite deste orçamento nas condições descritas acima?</p>
+      <div class="confirm-actions">
+        <button class="btn-cancel" onclick="esconderConfirmacao()">Voltar</button>
+        <button class="btn-confirm" onclick="confirmarAceite()">Sim, aceitar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://xynqyybugkkdcxodbmcs.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnF5eWJ1Z2trZGN4b2RibWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDg1MDEsImV4cCI6MjEwNDI4NDUwMX0.REgVgo394-OpHb3OyIWUZxNq0t4I8y6Hh70ZZTVcZ2E';
+
+  function getToken(){
+    const params = new URLSearchParams(window.location.search);
+    // token de demonstração (orçamento real da IESP) — em produção o link do WhatsApp já vem com ?t=<token>
+    return params.get('t') || 'de853a89-68eb-4a3f-bcc1-1d1aa7eb40ec';
+  }
+
+  async function rpc(fn, body){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error('Falha na requisição');
+    return res.json();
+  }
+
+  function brl(v){
+    return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  }
+  function dataBr(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR');
+  }
+
+  let orcamento = null;
+  let token = null;
+
+  async function init(){
+    token = getToken();
+    if(!token){
+      renderErro('Link inválido — falta o código do orçamento.');
+      return;
+    }
+    try{
+      orcamento = await rpc('obter_orcamento_publico', {p_token: token});
+      if(!orcamento){
+        renderErro('Não encontramos esse orçamento. Confira o link recebido.');
+        return;
+      }
+      render();
+      rpc('registrar_visualizacao_publica', {p_token: token}).catch(()=>{});
+    }catch(e){
+      renderErro('Não deu pra carregar agora. Tenta abrir o link de novo em instantes.');
+    }
+  }
+
+  function renderErro(msg){
+    document.getElementById('content').innerHTML = `<div class="state error">${msg}</div>`;
+  }
+
+  function render(){
+    const o = orcamento;
+    const jaAceito = !!o.data_aceite;
+
+    const head = `
+      <div class="doc-head">
+        <div>
+          ${o.empresa_logo_url ? `<img class="logo" src="${o.empresa_logo_url}">` : `<div class="co">${o.empresa_nome}</div>`}
+          <div class="co-sub">${o.empresa_cnpj ? 'CNPJ '+o.empresa_cnpj : ''}</div>
+        </div>
+        <div class="meta">
+          <div class="num">ORÇ-${String(o.numero).padStart(3,'0')}</div>
+          <div>${dataBr(o.data_emissao)}</div>
+        </div>
+      </div>
+      <span class="status-pill ${jaAceito?'aceito':'aberto'}">${jaAceito ? 'Aceito em '+dataBr(o.data_aceite) : 'Aguardando aprovação'}</span>
+    `;
+
+    let body = `
+      <div class="doc-block"><p>${o.texto_abertura||''}</p></div>
+      <div class="doc-block"><h4>Cliente</h4><p>${o.cliente_nome}</p></div>
+    `;
+
+    if(o.categoria==='comercio'){
+      const itens = o.itens||[];
+      body += `
+        <div class="doc-block">
+          <h4>Itens</h4>
+          ${itens.map(it=>`<p>${it.descricao||'(sem descrição)'} — ${it.tipo==='servico'?'Serviço':'Peça'} · ${it.quantidade} × ${brl(it.valor_unitario)} = ${brl(it.quantidade*it.valor_unitario)}</p>`).join('')}
+          <div class="doc-total-row"><span>Total</span><span>${brl(o.valor_total)}</span></div>
+        </div>
+      `;
+    } else {
+      const modeloLabel = {banco_horas:'Banco de Horas', horas_avulsa:'Horas Avulsa', projeto_fechado:'Projeto Fechado'}[o.modelo_contrato] || '—';
+      let detalhe = '';
+      if(o.modelo_contrato==='banco_horas'){
+        detalhe = `<p>Carga horária contratada: ${o.carga_horaria_contratada||'—'}h${o.garantia_minima_horas ? ' · Garantia mínima mensal: '+o.garantia_minima_horas+'h' : ''}</p>`;
+      } else if(o.modelo_contrato==='horas_avulsa'){
+        detalhe = `<p>Valor por hora: ${brl(o.valor_hora)}${o.horas_estimadas ? ' · Horas estimadas: '+o.horas_estimadas+'h' : ''}</p>`;
+      } else {
+        detalhe = `<p>Valor fechado para o escopo descrito abaixo.</p>`;
+      }
+      body += `
+        <div class="doc-block"><h4>1. Escopo dos serviços</h4><p>${o.escopo||'—'}</p></div>
+        <div class="doc-block">
+          <h4>2. Investimento</h4>
+          <p><strong>Modelo:</strong> ${modeloLabel}</p>
+          ${detalhe}
+          <div class="doc-total-row"><span>Valor total</span><span>${brl(o.valor_total)}</span></div>
+        </div>
+      `;
+    }
+
+    body += `
+      <div class="doc-block"><h4>Condições de pagamento</h4><p>${o.condicoes_pagamento||''}</p></div>
+      <div class="doc-block"><h4>Obrigações do cliente</h4><p>${o.obrigacoes_cliente||''}</p></div>
+      <div class="doc-block"><h4>Obrigações da empresa</h4><p>${o.obrigacoes_empresa||''}</p></div>
+      <div class="doc-block" style="margin-top:6px;">
+        <p>Atenciosamente,</p>
+        ${o.empresa_assinatura_url ? `<img class="sig-img" src="${o.empresa_assinatura_url}">` : ''}
+        <p style="font-weight:700;">${o.empresa_nome}</p>
+      </div>
+    `;
+
+    document.getElementById('content').innerHTML = `<div class="doc-paper">${head}${body}</div>${jaAceito ? `<div class="accepted-banner">Você já aceitou este orçamento em ${dataBr(o.data_aceite)}.</div>` : ''}`;
+
+    if(!jaAceito){
+      document.getElementById('actionBar').style.display = 'block';
+      document.getElementById('validText').textContent = o.validade_dias ? `Válido por ${o.validade_dias} dias a partir de ${dataBr(o.data_emissao)}` : '';
+    }
+  }
+
+  function mostrarConfirmacao(){
+    document.getElementById('acceptBtn').style.display = 'none';
+    document.getElementById('confirmBox').style.display = 'block';
+  }
+  function esconderConfirmacao(){
+    document.getElementById('confirmBox').style.display = 'none';
+    document.getElementById('acceptBtn').style.display = 'block';
+  }
+
+  async function confirmarAceite(){
+    const btn = document.querySelector('.btn-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    try{
+      const ok = await rpc('aceitar_orcamento_publico', {p_token: token, p_ip: null});
+      if(ok){
+        orcamento.data_aceite = new Date().toISOString();
+        document.getElementById('actionBar').style.display = 'none';
+        render();
+      } else {
+        alert('Esse orçamento já foi respondido ou o link não é mais válido.');
+      }
+    }catch(e){
+      alert('Não deu pra confirmar agora. Tenta de novo em instantes.');
+      btn.disabled = false;
+      btn.textContent = 'Sim, aceitar';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
