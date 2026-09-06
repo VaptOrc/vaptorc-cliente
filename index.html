@@ -203,8 +203,16 @@
       `;
     }
 
+    const dadosPagamento = (o.empresa_chave_pix || o.empresa_dados_bancarios) ? `
+      <div class="doc-block">
+        <h4>Dados para pagamento</h4>
+        ${o.empresa_chave_pix ? `<p><strong>Chave Pix:</strong> ${o.empresa_chave_pix}</p>` : ''}
+        ${o.empresa_dados_bancarios ? `<p><strong>Dados bancários:</strong> ${o.empresa_dados_bancarios}</p>` : ''}
+      </div>` : '';
+
     body += `
       <div class="doc-block"><h4>Condições de pagamento</h4><p>${o.condicoes_pagamento||''}</p></div>
+      ${dadosPagamento}
       <div class="doc-block"><h4>Obrigações do cliente</h4><p>${o.obrigacoes_cliente||''}</p></div>
       <div class="doc-block"><h4>Obrigações da empresa</h4><p>${o.obrigacoes_empresa||''}</p></div>
       <div class="doc-block" style="margin-top:6px;">
